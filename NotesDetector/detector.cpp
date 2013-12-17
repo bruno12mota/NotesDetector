@@ -1,9 +1,18 @@
 #include "detector.h"
 
+#include "windows.h"
+
 Detector::~Detector(void) {}
 
 Detector::Detector(string scene_path, string feature_detector, string descriptor_extractor, string matcher_type){
 	has_error = false;
+
+	LARGE_INTEGER frequency; // ticks per second
+    LARGE_INTEGER begin, end;
+    double elapsed_time;
+
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&begin);
 
 	//options
 	this->feature_detector = feature_detector;
@@ -12,6 +21,7 @@ Detector::Detector(string scene_path, string feature_detector, string descriptor
 
 	//Get scene image
 	Mat img_scene = imread( scene_path, CV_LOAD_IMAGE_GRAYSCALE );
+	Mat img_final = imread( scene_path );
 
 	//Check if images are loaded
 	if( !img_scene.data ){ 
@@ -37,6 +47,8 @@ Detector::Detector(string scene_path, string feature_detector, string descriptor
         {"bills/50eu_r.jpg", "50"},
         {"bills/50eu_v.jpg", "50"}
     };
+
+	unsigned int total = 0;
 
 	//For each bill
 	for (int i = 0; i < 8; i++) {
@@ -102,24 +114,33 @@ Detector::Detector(string scene_path, string feature_detector, string descriptor
 
 			perspectiveTransform( obj_corners, scene_corners, H);
 
-			//-- Draw lines between the corners (the mapped object in the scene - image_2 )
-			line( img_matches, scene_corners[0] + Point2f( img_object.cols, 0), scene_corners[1] + Point2f( img_object.cols, 0), Scalar(0, 255, 0), 4 );
-			line( img_matches, scene_corners[1] + Point2f( img_object.cols, 0), scene_corners[2] + Point2f( img_object.cols, 0), Scalar( 0, 255, 0), 4 );
-			line( img_matches, scene_corners[2] + Point2f( img_object.cols, 0), scene_corners[3] + Point2f( img_object.cols, 0), Scalar( 0, 255, 0), 4 );
-			line( img_matches, scene_corners[3] + Point2f( img_object.cols, 0), scene_corners[0] + Point2f( img_object.cols, 0), Scalar( 0, 255, 0), 4 );
-
 			if( bill_found(inlier_points, scene_corners) ){
 				cout << "Found bill!" << endl;
+				total += atoi( bills[i][1].c_str() );
+
+				//-- Draw lines between the corners (the mapped object in the scene - image_2 )
+				line( img_final, scene_corners[0], scene_corners[1], Scalar(0, 255, 0), 4 );
+				line( img_final, scene_corners[1], scene_corners[2], Scalar( 0, 255, 0), 4 );
+				line( img_final, scene_corners[2], scene_corners[3], Scalar( 0, 255, 0), 4 );
+				line( img_final, scene_corners[3], scene_corners[0], Scalar( 0, 255, 0), 4 );
 			}
 			else{
 				cout << "Didn't find bill!" << endl;
 			}
-
-			//-- Show detected matches
-			imshow( "Good Matches & Object detection", img_matches );
-			waitKey(0);
 		}
 	}
+	
+    QueryPerformanceCounter(&end);
+	elapsed_time = (end.QuadPart - begin.QuadPart) * 1000.0 / frequency.QuadPart;
+	cout << "Elapsed time: " << elapsed_time << " ms\n";
+	
+	char total_str [50];
+	sprintf (total_str, "%d Euros", total);
+	putText(img_final, total_str, Point2f(10, 35) , FONT_HERSHEY_COMPLEX, 1, cv::Scalar(255,0,0), 2);
+	
+	imshow( "Euro Detection", img_final );
+	waitKey(0);
+	cout << "Total: " << total << endl;
 }
 
 bool Detector::bill_found(vector<Point2f> inlier_points, vector<Point2f> scene_corners){
@@ -133,9 +154,19 @@ bool Detector::bill_found(vector<Point2f> inlier_points, vector<Point2f> scene_c
 }
 
 vector< DMatch > Detector::get_good_matches(Mat descriptors_obj, Mat scene_descriptors){
-	FlannBasedMatcher matcher;
+	DescriptorMatcher *matcher;
+
+	if (this->matcher_type == "FLANN") {
+        matcher = new FlannBasedMatcher();
+    } else if (this->matcher_type == "BRUTE") {
+        matcher = new BFMatcher(cv::NORM_HAMMING, true);
+    }
+	else{
+		cout << "Descriptor matcher type incorrect!" << endl;
+	}
+
 	vector< DMatch > matches;
-	matcher.match( descriptors_obj, scene_descriptors, matches );
+	matcher->match( descriptors_obj, scene_descriptors, matches );
 	
 	double max_dist = 0; double min_dist = 100;
 
@@ -158,21 +189,47 @@ vector< DMatch > Detector::get_good_matches(Mat descriptors_obj, Mat scene_descr
 }
 
 vector<KeyPoint> Detector::get_key_points(Mat img){
-	int minHessian = 400;
+	FeatureDetector *detector;
 
-	SurfFeatureDetector detector( minHessian );
+	if (this->feature_detector == "FAST") {
+        detector = new FastFeatureDetector();
+    } else if (this->feature_detector == "SURF") {
+        detector = new SurfFeatureDetector(400);
+    } else if(this->feature_detector == "SIFT") {
+        detector = new SiftFeatureDetector();
+    } else if(this->feature_detector == "ORB") {
+        detector = new OrbFeatureDetector();
+    }
+	else{
+		cout << "Feature Detector type incorrect!" << endl;
+	}
 
 	vector<KeyPoint> keypoints;
-	detector.detect( img , keypoints );
+	detector->detect( img , keypoints );
 
 	return keypoints;
 }
 
 Mat Detector::calculate_descriptors(Mat img, vector<KeyPoint> keypoints){
-	SurfDescriptorExtractor extractor;
+	DescriptorExtractor *extractor;
+
+	if (this->descriptor_extractor == "SURF") {
+        extractor = new SurfDescriptorExtractor();
+    } else if (this->descriptor_extractor == "SIFT") {
+        extractor = new SiftDescriptorExtractor(400);
+    } else if(this->descriptor_extractor == "ORB") {
+        extractor = new OrbDescriptorExtractor();
+    } else if(this->descriptor_extractor == "BRIEF") {
+        extractor = new BriefDescriptorExtractor();
+    } else if(this->descriptor_extractor == "FREAK") {
+        extractor = new FREAK();
+    }
+	else{
+		cout << "Descriptor Extractor type incorrect!" << endl;
+	}
 
 	Mat descriptors;
-	extractor.compute( img, keypoints, descriptors );
+	extractor->compute( img, keypoints, descriptors );
 
 	return descriptors;
 }
