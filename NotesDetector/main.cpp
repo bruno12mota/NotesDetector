@@ -14,17 +14,41 @@ int main(int argc, char** argv){
 	String descriptor_extractor = "SIFT";	// SURF || SIFT || ORB || BRIEF || FREAK
 	String matcher_type = "FLANN";			// BRUTE || FLANN
 
+    string combinations[11][3] = {
+		{"SURF", "SURF",  "FlannBased"},
+        {"SURF", "FREAK", "Bruteforce"},
+        {"SURF", "SURF",  "Bruteforce"},
+        {"SIFT", "SIFT",  "FlannBased"},
+		{"FAST", "SURF",  "FlannBased"},
+        {"FAST", "SIFT",  "FlannBased"},
+        {"FAST", "BRIEF", "Bruteforce"},
+        {"FAST", "FREAK", "Bruteforce"},
+        {"FAST", "ORB",   "Bruteforce"},
+        {"ORB",  "ORB",   "Bruteforce"},
+        {"ORB",  "BRIEF", "Bruteforce"}
+	};
+
 	cout << "Choose the image scene to use:" << endl;
-	getline(cin, file);
+	//getline(cin, file);
+	file = "test/test5.jpg";
 
-	cout << "Choose the feature detector (SURF|FAST|SIFT|ORB):" << endl;
-	getline(cin, feature_detector);
+	cout << "Choose the feature detector/descriptor extractor/matcher type combination:" << endl;
 
-	cout << "Choose the descriptor extractor (SURF|SIFT|ORB|BRIEF|FREAK):" << endl;
-	getline(cin, descriptor_extractor);
+	for(int i = 0; i < 11 ; i++){
+		cout << "[" << i << "] " << combinations[i][0] << " | " << combinations[i][1] << " | " << combinations[i][2] << endl; 
+	}
 
-	cout << "Choose the matcher type (FLANN|BRUTE):" << endl;
-	getline(cin, matcher_type);
+	cout << endl << "The number of the option you want:";
+
+	string number_str;
+	int number;
+	getline(cin, number_str);
+
+	number = atoi( number_str.c_str() );
+
+	feature_detector = combinations[number][0];
+	descriptor_extractor = combinations[number][1];
+	matcher_type = combinations[number][2];
 
 	Detector detector = Detector(file, feature_detector, descriptor_extractor, matcher_type);
 

@@ -21,9 +21,21 @@
     <ClCompile Include="detector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="image.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="bill.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="detector.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bill.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="image.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
